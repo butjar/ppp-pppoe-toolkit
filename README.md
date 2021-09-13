@@ -31,3 +31,8 @@ This section introduces the images contained in the `ppp-pppoe-toolkit`.
 #### ppp
 [`ppp`](./ppp) is a tiny [alpine](https://hub.docker.com/_/alpine) based base
 image that provides basic `PPP`/`PPPoE` tools.
+
+### rp-pppoe
+[`rp-pppoe`](./rp-pppoe) builds on top of the `ppp` image and adds the
+roaringpenguin pppoe package which provides `PPPoE` client, relay and server
+(plus some additional utilities).
