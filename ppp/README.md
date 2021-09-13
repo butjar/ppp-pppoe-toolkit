@@ -10,6 +10,24 @@ installed that pulls in several subpackages. Most notably the subpackage
 The subpackage `ppp-pppoe` provides the `rp-pppoe.so` kernel module and the
 binary `pppoe-discovery`.
 
+To allow pre-configuration of network devices the [ifupdown-ng
+package](https://git.alpinelinux.org/aports/tree/main/ifupdown-ng) is
+installed.
+
+> [ifupdown-ng](https://github.com/ifupdown-ng/ifupdown-ng) is a network device
+> manager that is largely compatible with Debian ifupdown, BusyBox ifupdown and
+> Cumulus Networks' ifupdown2.
+
+By default, the environment variable `IFUPDOWN_NG_IFACES` in the `ppp` image
+points to the default `ifupdown-ng` configuration file path
+`/etc/network/interfaces`. On container startup the
+[`docker-entrypoint.sh`](./docker-entrypoint.sh) script is executed which
+applies the configuration in the file `IFUPDOWN_NG_IFACES` points to (if it
+exists). You can point `IFUPDOWN_NG_IFACES` to one of the example
+configurations in [/etc/network/](./etc/network). However, you can also [bind
+mount](https://docs.docker.com/storage/bind-mounts/) a custom configuration to
+`/etc/network/interfaces` which will be applied on startup.
+
 Usage
 -----
 
@@ -86,4 +104,48 @@ tcpdump: listening on docker0, link-type EN10MB (Ethernet), capture size 262144 
 18:56:11.629395 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype PPPoE D (0x8863), length 24: PPPoE PADI [Service-Name]
 18:56:16.633966 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype PPPoE D (0x8863), length 24: PPPoE PADI [Service-Name]
 18:56:21.637221 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype PPPoE D (0x8863), length 24: PPPoE PADI [Service-Name]
+```
+
+### ifupdown-ng
+
+The `ppp` image ships with `ifupdown-ng` so you can apply a network device
+configuration on container startup. The easiest way to do so is pointing
+`IFUPDOWN_NG_IFACES` to one of the example files. For instance, to create a
+vlan interface on startup you can point the variable to
+[`/etc/network/interfaces.vlan`](./etc/network/interfaces.vlan):
+
+```
+$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vlan ppp ip a
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0.50@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN qlen 1000
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+1007: eth0@if1008: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UP
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+```
+
+This might be helpful if your access concentrator expects VLAN tagged traffic.
+For instance, to run a tagged `PPPoE` discovery you can run the following command:
+
+```
+$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vlan ppp pppoe-discovery -I eth0.50
+
+Timeout waiting for PADO packets
+```
+
+A `tcpdump` on the docker bridge shows that the `PADI` packets have been
+tagged:
+
+```
+$ sudo tcpdump -vneli docker0 pppoed && pppoes
+
+tcpdump: listening on docker0, link-type EN10MB (Ethernet), capture size 262144 bytes
+22:57:52.921506 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), length 28: vlan 50, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
+22:57:57.926085 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), length 28: vlan 50, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
+22:58:02.931302 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), length 28: vlan 50, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
 ```
