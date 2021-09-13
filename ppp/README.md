@@ -181,3 +181,116 @@ tcpdump: listening on docker0, link-type EN10MB (Ethernet), capture size 262144 
 23:17:41.025467 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q-QinQ (0x88a8), length 32: vlan 50, p 0, ethertype 802.1Q, vlan 100, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
 23:17:46.029358 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q-QinQ (0x88a8), length 32: vlan 50, p 0, ethertype 802.1Q, vlan 100, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
 ```
+
+The [`interfaces.ppp`](./etc/network/interfaces.ppp) example configuration
+shows how a `ppp` device can be brought up on startup with `ifupdown-ng`. Such
+connection will be retained until either client or server terminate the
+connection. The session establishment can be demonstrated in conjunction with a
+[`rp-pppoe`](../rp-pppoe) container:
+
+First, start a `pppoe-server` in a separate terminal window:
+
+```
+$ docker run --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp --rm -ti rp-pppoe
+```
+
+Then start a `ppp` container with the `interfaces.ppp` configuration. The
+following output from the client stdout displays:
+
+1. A PPPoE session is established
+2. A new interface `ppp0` was created
+3. The `pppoe-server` can be pinged
+4. Calling `ifdown` with `interfaces.ppp` will terminate the session
+
+```
+$ docker run --rm -ti --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.ppp ppp /bin/bash
+
+Plugin rp-pppoe.so loaded.
+RP-PPPoE plugin version 3.8p compiled against pppd 2.4.8
+bash-5.1# Send PPPOE Discovery V1T1 PADI session 0x0 length 12
+ dst ff:ff:ff:ff:ff:ff  src 02:42:ac:11:00:03
+ [service-name] [host-uniq  19 00 00 00]
+Recv PPPOE Discovery V1T1 PADO session 0x0 length 52
+ dst 02:42:ac:11:00:03  src 02:42:ac:11:00:02
+ [AC-name ea3bfeb50234] [service-name] [AC-cookie  13 64 36 c8 b4 74 5c 6e cc fd f3 38 a1 9f cb 88 01 00 00 00] [host-uniq  19 00 00 00]
+Send PPPOE Discovery V1T1 PADR session 0x0 length 36
+ dst 02:42:ac:11:00:02  src 02:42:ac:11:00:03
+ [service-name] [host-uniq  19 00 00 00] [AC-cookie  13 64 36 c8 b4 74 5c 6e cc fd f3 38 a1 9f cb 88 01 00 00 00]
+Recv PPPOE Discovery V1T1 PADS session 0x1 length 12
+ dst 02:42:ac:11:00:03  src 02:42:ac:11:00:02
+ [service-name] [host-uniq  19 00 00 00]
+PADS: Service-Name: ''
+PPP session is 1
+Connected to 02:42:ac:11:00:02 via interface eth0
+using channel 1
+Using interface ppp0
+Connect: ppp0 <--> eth0
+sent [LCP ConfReq id=0x1 <mru 1492> <magic 0xe697e586>]
+rcvd [LCP ConfReq id=0x1 <mru 1492> <magic 0x210aed8d>]
+sent [LCP ConfAck id=0x1 <mru 1492> <magic 0x210aed8d>]
+sent [LCP ConfReq id=0x1 <mru 1492> <magic 0xe697e586>]
+rcvd [LCP ConfAck id=0x1 <mru 1492> <magic 0xe697e586>]
+peer from calling number 02:42:AC:11:00:02 authorized
+sent [IPCP ConfReq id=0x1 <addr 172.17.0.3>]
+rcvd [LCP EchoReq id=0x0 magic=0x210aed8d]
+sent [LCP EchoRep id=0x0 magic=0xe697e586]
+rcvd [CCP ConfReq id=0x1 <deflate 15> <deflate(old#) 15> <bsd v1 15>]
+sent [CCP ConfReq id=0x1]
+sent [CCP ConfRej id=0x1 <deflate 15> <deflate(old#) 15> <bsd v1 15>]
+rcvd [IPCP ConfReq id=0x1 <compress VJ 0f 01> <addr 10.0.0.1>]
+sent [IPCP ConfRej id=0x1 <compress VJ 0f 01>]
+rcvd [IPCP ConfNak id=0x1 <addr 10.67.15.1>]
+sent [IPCP ConfReq id=0x2 <addr 10.67.15.1>]
+rcvd [CCP ConfAck id=0x1]
+rcvd [CCP ConfReq id=0x2]
+sent [CCP ConfAck id=0x2]
+rcvd [IPCP ConfReq id=0x2 <addr 10.0.0.1>]
+sent [IPCP ConfAck id=0x2 <addr 10.0.0.1>]
+rcvd [IPCP ConfAck id=0x2 <addr 10.67.15.1>]
+not replacing existing default route via 172.17.0.1 with metric -1
+local  IP address 10.67.15.1
+remote IP address 10.0.0.1
+Script /etc/ppp/ip-up started (pid 39)
+Script /etc/ppp/ip-up finished (pid 39), status = 0x0
+
+
+bash-5.1# ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1492 qdisc fq_codel state UNKNOWN qlen 3
+    link/ppp
+    inet 10.67.15.1 peer 10.0.0.1/32 scope global ppp0
+       valid_lft forever preferred_lft forever
+1059: eth0@if1060: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UP
+    link/ether 02:42:ac:11:00:03 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.3/16 brd 172.17.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+
+
+bash-5.1# ping -c3 10.0.0.1
+PING 10.0.0.1 (10.0.0.1): 56 data bytes
+64 bytes from 10.0.0.1: seq=0 ttl=64 time=0.496 ms
+64 bytes from 10.0.0.1: seq=1 ttl=64 time=0.715 ms
+64 bytes from 10.0.0.1: seq=2 ttl=64 time=0.952 ms
+
+--- 10.0.0.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.496/0.721/0.952 ms
+
+
+bash-5.1# ifdown -afi /etc/network/interfaces.ppp
+Terminating on signal 15
+Connect time 0.9 minutes.
+Sent 252 bytes, received 252 bytes.
+Script /etc/ppp/ip-down started (pid 76)
+sent [LCP TermReq id=0x2 "User request"]
+Script /etc/ppp/ip-down finished (pid 76), status = 0x0
+rcvd [LCP TermAck id=0x2]
+Connection terminated.
+Send PPPOE Discovery V1T1 PADT session 0x1 length 32
+ dst 02:42:ac:11:00:02  src 02:42:ac:11:00:03
+ [host-uniq  19 00 00 00] [AC-cookie  13 64 36 c8 b4 74 5c 6e cc fd f3 38 a1 9f cb 88 01 00 00 00]
+Sent PADT
+```

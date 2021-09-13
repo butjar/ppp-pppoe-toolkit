@@ -11,6 +11,7 @@ RUN set -eux; \
 	apk add --no-cache \
 		bash \
 		ifupdown-ng \
+		ifupdown-ng-ppp \
 		ppp; \
 	\
 	ln -sf /proc/1/fd/1 "$PPPD_STDOUT_LOG"
