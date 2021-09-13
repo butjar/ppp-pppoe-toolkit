@@ -1,0 +1,8 @@
+SUB_TARGETS := ppp
+
+.PHONY: all
+all: $(SUB_TARGETS)
+
+.PHONY: $(SUB_TARGETS)
+$(SUB_TARGETS):
+	$(MAKE) -C $@

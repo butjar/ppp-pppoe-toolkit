@@ -1,0 +1,3 @@
+plugin rp-pppoe.so eth0
+defaultroute
+noauth

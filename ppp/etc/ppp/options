@@ -1,0 +1,3 @@
+lock
+debug
+logfile /var/log/ppp/pppd.stdout.log
