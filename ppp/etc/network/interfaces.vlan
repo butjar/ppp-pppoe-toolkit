@@ -1,0 +1,3 @@
+auto eth0.50
+iface eth0.50
+	post-up ip link set $IFACE up
