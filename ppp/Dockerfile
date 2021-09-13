@@ -16,6 +16,7 @@ RUN set -eux; \
 	ln -sf /proc/1/fd/1 "$PPPD_STDOUT_LOG"
 
 COPY etc /etc/
+COPY usr /usr/
 COPY docker-entrypoint.sh /usr/local/bin/
 
 WORKDIR /usr/sbin

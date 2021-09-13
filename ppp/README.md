@@ -149,3 +149,35 @@ tcpdump: listening on docker0, link-type EN10MB (Ethernet), capture size 262144 
 22:57:57.926085 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), length 28: vlan 50, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
 22:58:02.931302 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), length 28: vlan 50, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
 ```
+
+In a similar way, stacked VLAN tags can be added to the discovery using the
+[interfaces.qinq](./etc/network/interfaces.qinq) configuration file:
+
+```
+$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.qinq ppp /bin/bash -c "ip a; printf '\n\n'; pppoe-discovery -I eth0.50.100"
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0.50@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN qlen 1000
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+3: eth0.50.100@eth0.50: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN qlen 1000
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+1037: eth0@if1038: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UP
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+
+
+Timeout waiting for PADO packets
+```
+
+```
+$ sudo tcpdump -vneli docker0 vlan
+
+tcpdump: listening on docker0, link-type EN10MB (Ethernet), capture size 262144 bytes
+23:17:36.021473 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q-QinQ (0x88a8), length 32: vlan 50, p 0, ethertype 802.1Q, vlan 100, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
+23:17:41.025467 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q-QinQ (0x88a8), length 32: vlan 50, p 0, ethertype 802.1Q, vlan 100, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
+23:17:46.029358 02:42:ac:11:00:02 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q-QinQ (0x88a8), length 32: vlan 50, p 0, ethertype 802.1Q, vlan 100, p 0, ethertype PPPoE D, PPPoE PADI [Service-Name]
+```

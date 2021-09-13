@@ -1,0 +1,8 @@
+auto eth0.50
+iface eth0.50
+	vlan-protocol 802.1ad
+	post-up ip link set $IFACE up
+
+auto eth0.50.100
+iface eth0.50.100
+	post-up ip link set $IFACE up
