@@ -36,7 +36,7 @@ Usage
 A simple way to get started is spawning a container that runs `pppd`:
 
 ```
-$ docker run  --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -ti ppp pppd call default nodetach maxfail 1 maxconnect 5
+$ docker run  --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -ti butjar/ppp pppd call default nodetach maxfail 1 maxconnect 5
 
 Plugin rp-pppoe.so loaded.
 RP-PPPoE plugin version 3.8p compiled against pppd 2.4.8
@@ -90,7 +90,7 @@ page](https://ppp.samba.org/pppd.html).
 Maybe even simpler than `pppd` is starting a dockerized `pppoe-discovery`:
 
 ```
-$ docker run  --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -ti ppp pppoe-discovery
+$ docker run  --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -ti butjar/ppp pppoe-discovery
 
 Timeout waiting for PADO packets
 ```
@@ -115,7 +115,7 @@ vlan interface on startup you can point the variable to
 [`/etc/network/interfaces.vlan`](./etc/network/interfaces.vlan):
 
 ```
-$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vlan ppp ip a
+$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vlan butjar/ppp ip a
 
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
@@ -133,7 +133,7 @@ This might be helpful if your access concentrator expects VLAN tagged traffic.
 For instance, to run a tagged `PPPoE` discovery you can run the following command:
 
 ```
-$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vlan ppp pppoe-discovery -I eth0.50
+$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vlan butjar/ppp pppoe-discovery -I eth0.50
 
 Timeout waiting for PADO packets
 ```
@@ -154,7 +154,7 @@ In a similar way, stacked VLAN tags can be added to the discovery using the
 [interfaces.qinq](./etc/network/interfaces.qinq) configuration file:
 
 ```
-$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.qinq ppp /bin/bash -c "ip a; printf '\n\n'; pppoe-discovery -I eth0.50.100"
+$ docker run --rm -ti --cap-add=NET_ADMIN -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.qinq butjar/ppp /bin/bash -c "ip a; printf '\n\n'; pppoe-discovery -I eth0.50.100"
 
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
@@ -191,7 +191,7 @@ connection. The session establishment can be demonstrated in conjunction with a
 First, start a `pppoe-server` in a separate terminal window:
 
 ```
-$ docker run --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp --rm -ti rp-pppoe
+$ docker run --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp --rm -ti butjar/rp-pppoe
 ```
 
 Then start a `ppp` container with the `interfaces.ppp` configuration. The
@@ -203,7 +203,7 @@ following output from the client stdout displays:
 4. Calling `ifdown` with `interfaces.ppp` will terminate the session
 
 ```
-$ docker run --rm -ti --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.ppp ppp /bin/bash
+$ docker run --rm -ti --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.ppp butjar/ppp /bin/bash
 
 Plugin rp-pppoe.so loaded.
 RP-PPPoE plugin version 3.8p compiled against pppd 2.4.8
@@ -310,7 +310,7 @@ Now we can start a container, configured with one tunnel endpoint and listening
 on the main interface for packets arriving from the other tunnel endpoint:
 
 ```
-$ docker run --rm -ti --network=access --ip=172.255.100.2 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp2 ppp /bin/bash -c "apk add tcpdump; tcpdump -vneli eth0 host 172.255.100.1"
+$ docker run --rm -ti --network=access --ip=172.255.100.2 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp2 butjar/ppp /bin/bash -c "apk add tcpdump; tcpdump -vneli eth0 host 172.255.100.1"
 
 fetch https://dl-cdn.alpinelinux.org/alpine/v3.13/main/x86_64/APKINDEX.tar.gz
 fetch https://dl-cdn.alpinelinux.org/alpine/v3.13/community/x86_64/APKINDEX.tar.gz
@@ -327,7 +327,7 @@ interface of the first container, we see that its ICMP requests are
 successfully answered:
 
 ```
-$ docker run --rm -ti --network=access --ip=172.255.100.1 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp1 ppp ping -c1 192.168.255.2
+$ docker run --rm -ti --network=access --ip=172.255.100.1 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp1 butjar/ppp ping -c1 192.168.255.2
 
 PING 192.168.255.2 (192.168.255.2): 56 data bytes
 64 bytes from 192.168.255.2: seq=0 ttl=64 time=0.395 ms
@@ -371,7 +371,7 @@ Finally, you can investigate the `interfaces.vx_ptp1` configuration by looking
 into the interfaces of a running container:
 
 ```
-$ docker run --rm -ti --network=access --ip=172.255.100.1 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp1 ppp /bin/bash -c "ip a; printf '\n\n'; ip -d l show vx_ptp1"
+$ docker run --rm -ti --network=access --ip=172.255.100.1 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp1 butjar/ppp /bin/bash -c "ip a; printf '\n\n'; ip -d l show vx_ptp1"
 
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00

@@ -25,14 +25,14 @@ By default, a `rp-pppoe` container executes `pppoe-server` in foreground (`-F`
 argument is passed). You can simply start a dockerized `pppoe-server`:
 
 ```
-$ docker run --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp --rm -ti rp-pppoe
+$ docker run --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp --rm -ti butjar/rp-pppoe
 ```
 
 Following the [pppd usage example](../ppp/README.md#pppd) you can than
 establish a dockerized ppp session from another terminal window:
 
 ```
-$ docker run  --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -ti ppp pppd call default nodetach maxfail 1 maxconnect 5
+$ docker run  --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -ti butjar/ppp pppd call default nodetach maxfail 1 maxconnect 5
 
 Plugin rp-pppoe.so loaded.
 RP-PPPoE plugin version 3.8p compiled against pppd 2.4.8
@@ -105,7 +105,7 @@ apply for `pppoe-server`. The verbose `stdout` of the `rp-pppoe` container
 looks the following:
 
 ```
-$ docker run --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp --rm -ti rp-pppoe
+$ docker run --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp --rm -ti butjar/rp-pppoe
 
 using channel 1
 Using interface ppp0
