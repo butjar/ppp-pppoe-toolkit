@@ -294,3 +294,100 @@ Send PPPOE Discovery V1T1 PADT session 0x1 length 32
  [host-uniq  19 00 00 00] [AC-cookie  13 64 36 c8 b4 74 5c 6e cc fd f3 38 a1 9f cb 88 01 00 00 00]
 Sent PADT
 ```
+
+The following example demonstrates a VXLAN point-to-point connection between
+two containers using the example `ifupdown-ng` interfaces configurations. Since
+we need to know the IPs of the containers upfront to setup the remote tunnel
+endpoints accordingly, we first create a new docker network:
+
+```
+$ docker network create -d bridge --subnet=172.255.0.0/16 --opt com.docker.network.bridge.name=docker-access access
+
+a61d830ea0c896b75f0222bbcaba7841cca80e7afbed491a71a15c6230057f8d
+```
+
+Now we can start a container, configured with one tunnel endpoint and listening
+on the main interface for packets arriving from the other tunnel endpoint:
+
+```
+$ docker run --rm -ti --network=access --ip=172.255.100.2 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp2 ppp /bin/bash -c "apk add tcpdump; tcpdump -vneli eth0 host 172.255.100.1"
+
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.13/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.13/community/x86_64/APKINDEX.tar.gz
+(1/2) Installing libpcap (1.10.0-r0)
+(2/2) Installing tcpdump (4.99.0-r0)
+Executing busybox-1.32.1-r6.trigger
+OK: 17 MiB in 45 packages
+tcpdump: listening on eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+```
+
+When we start a second container with the corresponding remote endpoint
+configuration and ping the underlay network address configured on the VXLAN
+interface of the first container, we see that its ICMP requests are
+successfully answered:
+
+```
+$ docker run --rm -ti --network=access --ip=172.255.100.1 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp1 ppp ping -c1 192.168.255.2
+
+PING 192.168.255.2 (192.168.255.2): 56 data bytes
+64 bytes from 192.168.255.2: seq=0 ttl=64 time=0.395 ms
+
+--- 192.168.255.2 ping statistics ---
+1 packets transmitted, 1 packets received, 0% packet loss
+round-trip min/avg/max = 0.395/0.395/0.395 ms
+```
+
+On the main interface of the first container we see the encapsulated ICMP
+packet exchange:
+
+```
+12:11:31.850085 02:42:ac:ff:64:01 > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Request who-has 172.255.100.2 tell 172.255.100.1, length 28
+12:11:31.850096 02:42:ac:ff:64:02 > 02:42:ac:ff:64:01, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Reply 172.255.100.2 is-at 02:42:ac:ff:64:02, length 28
+12:11:31.850121 02:42:ac:ff:64:01 > 02:42:ac:ff:64:02, ethertype IPv4 (0x0800), length 92: (tos 0x0, ttl 64, id 50513, offset 0, flags [none], proto UDP (17), length 78)
+    172.255.100.1.56864 > 172.255.100.2.4789: VXLAN, flags [I] (0x08), vni 1
+ea:da:e3:93:b4:d9 > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Request who-has 192.168.255.2 tell 192.168.255.1, length 28
+12:11:31.850176 02:42:ac:ff:64:02 > 02:42:ac:ff:64:01, ethertype IPv4 (0x0800), length 92: (tos 0x0, ttl 64, id 9681, offset 0, flags [none], proto UDP (17), length 78)
+    172.255.100.2.56864 > 172.255.100.1.4789: VXLAN, flags [I] (0x08), vni 1
+56:76:17:2a:ec:9d > ea:da:e3:93:b4:d9, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Reply 192.168.255.2 is-at 56:76:17:2a:ec:9d, length 28
+12:11:31.850267 02:42:ac:ff:64:01 > 02:42:ac:ff:64:02, ethertype IPv4 (0x0800), length 148: (tos 0x0, ttl 64, id 50514, offset 0, flags [none], proto UDP (17), length 134)
+    172.255.100.1.60320 > 172.255.100.2.4789: VXLAN, flags [I] (0x08), vni 1
+ea:da:e3:93:b4:d9 > 56:76:17:2a:ec:9d, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 60006, offset 0, flags [DF], proto ICMP (1), length 84)
+    192.168.255.1 > 192.168.255.2: ICMP echo request, id 256, seq 0, length 64
+12:11:31.850305 02:42:ac:ff:64:02 > 02:42:ac:ff:64:01, ethertype IPv4 (0x0800), length 148: (tos 0x0, ttl 64, id 9682, offset 0, flags [none], proto UDP (17), length 134)
+    172.255.100.2.60320 > 172.255.100.1.4789: VXLAN, flags [I] (0x08), vni 1
+56:76:17:2a:ec:9d > ea:da:e3:93:b4:d9, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 19635, offset 0, flags [none], proto ICMP (1), length 84)
+    192.168.255.2 > 192.168.255.1: ICMP echo reply, id 256, seq 0, length 64
+```
+
+The IP addresses of the containers in our custom network have been statically
+assigned on startup through the `--ip` argument of the
+[docker run command](https://docs.docker.com/engine/reference/commandline/run/#connect-a-container-to-a-network---network).
+Note, how the `vxlan-remote-ip` configurations in
+[`interfaces.vx_ptp1`](./etc/network/interfaces.vx_ptp1) and
+[`interfaces.vx_ptp2`](./etc/network/interfaces.vx_ptp2) match each other's
+tunnel enpoint IP assignment.
+
+Finally, you can investigate the `interfaces.vx_ptp1` configuration by looking
+into the interfaces of a running container:
+
+```
+$ docker run --rm -ti --network=access --ip=172.255.100.1 --cap-add=NET_ADMIN --device /dev/ppp:/dev/ppp -e IFUPDOWN_NG_IFACES=/etc/network/interfaces.vx_ptp1 ppp /bin/bash -c "ip a; printf '\n\n'; ip -d l show vx_ptp1"
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: vx_ptp1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether b2:50:b8:3b:b5:74 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.255.1/24 scope global vx_ptp1
+       valid_lft forever preferred_lft forever
+1176: eth0@if1177: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether 02:42:ac:ff:64:01 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 172.255.100.1/16 brd 172.255.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+
+
+2: vx_ptp1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether b2:50:b8:3b:b5:74 brd ff:ff:ff:ff:ff:ff promiscuity 0
+    vxlan id 1 remote 172.255.100.2 dev eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535
+```

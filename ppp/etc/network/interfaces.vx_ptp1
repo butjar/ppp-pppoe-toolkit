@@ -1,0 +1,6 @@
+auto vx_ptp1
+iface vx_ptp1
+	address 192.168.255.1/24
+	vxlan-id        1
+	vxlan-physdev   eth0
+	vxlan-remote-ip  172.255.100.2
